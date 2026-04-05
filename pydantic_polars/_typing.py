@@ -45,6 +45,7 @@ type ConcatMethod = Literal[
 type EngineTypeSlug = Literal['auto', 'in-memory', 'streaming', 'gpu']
 type EngineType = EngineTypeSlug | GPUEngine
 
+
 class CollectKwargs(TypedDict, total=False):
     """
     `LazyFrame.collect()` parameters.

@@ -78,12 +78,14 @@ if TYPE_CHECKING:
         *args: _Defer[T], **kwargs: Unpack[CollectAllKwargs]
     ) -> tuple[T, ...]: ...
 
+
 @staticmethod
 def collect_all[T](
     *args: _Defer[T], **kwargs: Unpack[CollectAllKwargs]
 ) -> tuple[Any, ...]:
     dfs = pl.collect_all([a.lf for a in args], **kwargs)
     return tuple(v.validator.validate(df) for v, df in zip(args, dfs, strict=True))
+
 
 if TYPE_CHECKING:
     # Since python typing doesn't yet support variadic type variables, we
@@ -150,12 +152,14 @@ if TYPE_CHECKING:
         *args: _Defer[T], **kwargs: Unpack[CollectAllAsyncKwargs]
     ) -> tuple[T, ...]: ...
 
+
 @staticmethod
 async def collect_all_async[T](
     *args: _Defer[T], **kwargs: Unpack[CollectAllAsyncKwargs]
 ) -> tuple[Any, ...]:
     dfs = await pl.collect_all_async([a.lf for a in args], **kwargs)
     return tuple(v.validator.validate(df) for v, df in zip(args, dfs, strict=True))
+
 
 if TYPE_CHECKING:
     # Since python typing doesn't yet support variadic type variables, we
@@ -231,6 +235,7 @@ if TYPE_CHECKING:
         *args: _Defer[T], **kwargs: Unpack[CollectAllKwargs]
     ) -> tuple[RootModel[T], ...]: ...
 
+
 @staticmethod
 def collect_all_models[T](
     *args: _Defer[T], **kwargs: Unpack[CollectAllKwargs]
@@ -239,6 +244,7 @@ def collect_all_models[T](
     return tuple(
         v.validator.validate_model(df) for v, df in zip(args, dfs, strict=True)
     )
+
 
 if TYPE_CHECKING:
     # Since python typing doesn't yet support variadic type variables, we
@@ -313,6 +319,7 @@ if TYPE_CHECKING:
     async def collect_all_models_async[T](
         *args: _Defer[T], **kwargs: Unpack[CollectAllAsyncKwargs]
     ) -> tuple[RootModel[T], ...]: ...
+
 
 @staticmethod
 async def collect_all_models_async[T](
