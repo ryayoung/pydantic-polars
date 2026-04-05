@@ -35,7 +35,7 @@ jobs:
       run: uv run task format --check
 
     - name: Run type checker
-      run: uv run task typecheck
+      run: uv run task check
 
     - name: Run tests with coverage
       run: uv run task tests --cov-report=xml
