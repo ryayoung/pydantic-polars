@@ -42,7 +42,7 @@ dev = [
 
 [tool.taskipy.tasks]
 format = "ruff format"
-typecheck = "pyright"
+check = "pyright"
 tests = "uv run pytest --cov=pydantic_polars --cov-branch -vvs --doctest-modules"
 
 [tool.ruff.format]
