@@ -1,8 +1,21 @@
 # Pydantic, for Polars
 
+[![PyPI](https://img.shields.io/pypi/v/pydantic-polars)](https://pypi.org/project/pydantic-polars/)
+[![Tests](https://github.com/ryayoung/pydantic-polars/actions/workflows/tests.yml/badge.svg)](https://github.com/ryayoung/pydantic-polars/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/ryayoung/pydantic-polars/branch/main/graph/badge.svg)](https://codecov.io/gh/ryayoung/pydantic-polars)
+[![License](https://img.shields.io/github/license/ryayoung/pydantic-polars)](https://github.com/ryayoung/pydantic-polars/blob/main/LICENSE)
+[![Supported Python versions](https://img.shields.io/pypi/pyversions/pydantic-polars.svg)](https://pypi.python.org/pypi/pydantic-polars/)
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Pyright](https://img.shields.io/badge/type%20checker-pyright-blue)](https://github.com/microsoft/pyright)
+
+
 Type-safe, maintainable interfaces between Polars and Python objects.
 
-# pydantic_polars.validate`
+```
+uv add pydantic-polars
+```
+
+# pydantic_polars.validate
 
 **Go from Polars query -> Python objects**
 

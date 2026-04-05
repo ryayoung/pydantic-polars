@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pydantic_polars"]
+
+[project]
+name = "pydantic-polars"
+version = "0.0.1"
+requires-python = ">=3.14"
+description = "Bring polars data back to Python objects, safely. Validation, schema/query generation."
+authors = [
+    {name = "Ryan Young", email = "dev@ryayoung.com"}
+]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/ryayoung/pydantic-polars"
+repository = "https://github.com/ryayoung/pydantic-polars"
+documentation = "https://pydantic-polars.readthedocs.io"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries"
+]
+dependencies = [
+    "pydantic",
+    "polars",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.401",
+    "pytest>=8.4.0",
+    "pytest-cov>=6.1.1",
+    "ruff>=0.11.12",
+    "taskipy>=1.14.1",
+]
+
+[tool.taskipy.tasks]
+format = "ruff format"
+typecheck = "pyright"
+tests = "uv run pytest --cov=pydantic_polars --cov-branch -vvs --doctest-modules"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pyright]
+enableExperimentalFeatures = true
+typeCheckingMode = "strict"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportUnknownMemberType = false
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
