@@ -27,37 +27,41 @@ from pydantic_polars import validate as plv
 # Equivalent to `lf.collect().rows(named=True)`
 users = plv.records.collect(lf)  # -> list[dict[str, Any]]
 
-# I have a model now. Parse + validate.
-users = plv.records[list[UserModel]].collect(lf)
+# I have a model now. Parse + validate a list of them.
+users = plv.records[list[User]].collect(lf)  # -> list[User]
 
-# My polars query always produces exactly 1 user.
-user = plv.record[UserModel].collect(lf.limit(1))
+# Can there be an api around the list so I can model_dump?
+users = plv.records[list[User]].collect_model(lf)  # -> pydantic.RootModel[list[User]]
+users_json = users.model_dump_json()
 
-# At most, 1 user. But 0 rows might come back. Get User or None.
-user = plv.get_record[UserModel].collect(lf.filter(c.name == 'jeff').limit(1))
+# My query produces, at most, 1 user. But 0 rows may come back.
+user = plv.get_record[User].collect(lf.filter(name='Mo').head(1))  # -> User | None
 
-# NamedTuple instead of dataclass? Also, can we do async?
-users = await plv.rows[list[UserNamedTupleRow]].collect_async(lf)
+# My query produces *exactly* 1 user. It cannot produce 0 or 2.
+user = plv.record[User].collect(lf.head(1))  # -> User
 
-# Need one huge mapping of all name -> age
-name_age_map = plv.map[dict[str, int | None]].collect(lf.select(c.name, c.age))
+# Tuples instead of objects? Also...can we do async?
+users = await plv.rows[list[UserNamedTuple]].collect_async(lf)  # -> list[UserNamedTupleRow]
+
+# Need one huge {name: age} mapping. My query returns exactly 2 columns.
+name_age_map = plv.map[dict[str, int]].collect(lf.select(c.name, c.age))
 
 # Everyone's names, please
-users_names = plv.column[list[str]].collect(lf.select(c.name))
+users_names = plv.column[list[str]].collect(lf.select(c.name))  # -> list[str]
 
 # Age of oldest person?
-oldest_age = plv.item[int | None].collect(lf.select(c.age.max()))
+oldest_age = plv.item[int | None].collect(lf.select(c.age.max()))  # -> int | None
 
 # Can we parallelize those in Rust, on other threads?
 users_names, oldest_age = await plv.collect_all_async(
     plv.column[list[str]].defer(lf.select(c.name)),
     plv.item[int | None].defer(lf.select(c.age.max())),
-)
+)  # -> (list[str], int | None)
 
 # Only need his age, but 0 rows may come back. Safely get int or None.
 age = plv.get_item[int].collect(
-    lf.filter(c.name == 'jeff').select(c.age).limit(1)
-)
+    lf.filter(c.name == 'jeff').select(c.age).head(1)
+)  # -> int | None
 ```
 
 ## 1. Pick a Shape
@@ -78,9 +82,14 @@ plv.<shape>[T].collect(lf)  # Returns T
 - **Row-oriented**
   - `record`: One row as a dict. `records`: List of many.
   - `row`: One row as a tuple. `rows`: List of many.
-  - `map`: The rows of 2 columns, as one {col1: col2} dict.
+  - `map`: The rows of 2 columns, as one {col0: col1} dict.
+  - `keyed_records`: Rows as one {col0: record} dict.
+  - `keyed_rows`: Rows as one {col0: row} dict.
+  - `record_map`: Rows of 2+ columns, as one {col0: {**rest_record}} dict.
+  - `row_map`: Rows of 2+ columns, as one {col0: (*rest_row)} dict.
 - **Column-oriented**
   - `column`: One column as a list of values. `columns`: Tuple of many.
+  - `keys`: One unique column as a list of values.
   - `column_entry`: One (name, column). `column_entries`: Tuple of many.
   - `column_map`: Many columns, as one {name: column} dict.
 - **With table header**
@@ -89,25 +98,30 @@ plv.<shape>[T].collect(lf)  # Returns T
   - `table_columns`: (names, columns)
 
 
-| Shape            | Default `T`                | Returns     | Input query must produce |
-|------------------|----------------------------|-------------|--------------------------|
-| `item`           | `Any`                      | `T`         | height == 1, width == 1  |
-| `column`         | `list[item]`               | `T`         | width == 1               |
-| `row`            | `tuple[item, ...]`         | `T`         | height == 1              |
-| `record`         | `dict[name, item]`         | `T`         | height == 1              |
-| `column_entry`   | `tuple[name, column]`      | `T`         | width == 1               |
-| `map`            | `dict[item, item]`         | `T`         | width == 2               |
-| `records`        | `list[record]`             | `T`         |                          |
-| `rows`           | `list[row]`                | `T`         |                          |
-| `columns`        | `tuple[column, ...]`       | `T`         |                          |
-| `column_entries` | `tuple[column_entry, ...]` | `T`         |                          |
-| `column_map`     | `dict[name, column]`       | `T`         |                          |
-| `table_columns`  | `tuple[names, columns]`    | `T`         |                          |
-| `table_rows`     | `tuple[names, rows]`       | `T`         |                          |
-| `table_records`  | `tuple[names, records]`    | `T`         |                          |
-| `get_item`       | `item`                     | `T or None` | height <= 1, width == 1  |
-| `get_row`        | `row`                      | `T or None` | height <= 1              |
-| `get_record`     | `record`                   | `T or None` | height <= 1              |
+| Shape            | Default `T`                  | Returns     | Input query must produce |
+|------------------|------------------------------|-------------|--------------------------|
+| `item`           | `Any`                        | `T`         | height == 1, width == 1  |
+| `column`         | `list[item]`                 | `T`         | width == 1               |
+| `keys`           | `list[item]`                 | `T`         | width == 1, col0 UNIQUE  |
+| `row`            | `tuple[item, ...]`           | `T`         | height == 1              |
+| `record`         | `dict[name, item]`           | `T`         | height == 1              |
+| `column_entry`   | `tuple[name, column]`        | `T`         | width == 1               |
+| `records`        | `list[record]`               | `T`         |                          |
+| `rows`           | `list[row]`                  | `T`         |                          |
+| `columns`        | `tuple[column, ...]`         | `T`         |                          |
+| `keyed_records`  | `dict[item, record]`         | `T`         | width >= 1, col0 UNIQUE  |
+| `keyed_rows`     | `dict[item, row]`            | `T`         | width >= 1, col0 UNIQUE  |
+| `map`            | `dict[item, item]`           | `T`         | width == 2, col0 UNIQUE  |
+| `record_map`     | `dict[item, partial_record]` | `T`         | width >= 2, col0 UNIQUE  |
+| `row_map`        | `dict[item, partial_row]`    | `T`         | width >= 2, col0 UNIQUE  |
+| `column_entries` | `tuple[column_entry, ...]`   | `T`         |                          |
+| `column_map`     | `dict[name, column]`         | `T`         |                          |
+| `table_columns`  | `tuple[names, columns]`      | `T`         |                          |
+| `table_rows`     | `tuple[names, rows]`         | `T`         |                          |
+| `table_records`  | `tuple[names, records]`      | `T`         |                          |
+| `get_item`       | `item`                       | `T or None` | height <= 1, width == 1  |
+| `get_row`        | `row`                        | `T or None` | height <= 1              |
+| `get_record`     | `record`                     | `T or None` | height <= 1              |
 
 
 ## 2. Call a method to create `T`

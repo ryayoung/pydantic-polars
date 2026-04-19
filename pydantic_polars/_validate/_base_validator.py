@@ -1,16 +1,22 @@
 from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING, Unpack
 from pydantic import RootModel
+from pydantic._internal._generics import (
+    get_args,
+)  # Need this for inspecting generic models
 from polars import DataFrame, LazyFrame
 from .._typing import CollectKwargs, CollectAsyncKwargs
 
 __all__ = ['BaseValidator', 'DeferredValidation']
 
 # Keep it a secret to Pyright that this is a subclass of RootModel.
-# I haven't figured out how to implement this without RootModel, and we might
-# never want to. What Pydantic does under the hood is actually real fucking
-# complicated, and quite good (even includes custom caching), so using RootModel
-# but hiding the API from Pyright is probably the best compromise.
+# I'm not yet sure whether this should be the long-term API solution, or if we'll want
+# a custom base of our own.
+# What Pydantic does under the hood with RootModel(BaseModel) is very powerful, and
+# particularly useful for our use case. For example, it has internal caching that makes
+# specialization extremely fast.
+# So using RootModel but hiding the API is probably the best move until we come
+# up with something better.
 if TYPE_CHECKING:
 
     class _TotallyNotARootModel[T]:

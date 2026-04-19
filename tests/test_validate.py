@@ -113,7 +113,38 @@ def empty_df() -> pl.DataFrame:
             {'Joe': 23, 'Bob': None},
         ),
         (
+            plv.record_map,
+            sample_df(),
+            {
+                'Joe': {'age': 23, 'active': True},
+                'Bob': {'age': None, 'active': False},
+            },
+        ),
+        (
+            plv.row_map,
+            sample_df(),
+            {'Joe': (23, True), 'Bob': (None, False)},
+        ),
+        (
+            plv.keyed_records,
+            sample_df(),
+            {
+                'Joe': {'name': 'Joe', 'age': 23, 'active': True},
+                'Bob': {'name': 'Bob', 'age': None, 'active': False},
+            },
+        ),
+        (
+            plv.keyed_rows,
+            sample_df(),
+            {'Joe': ('Joe', 23, True), 'Bob': ('Bob', None, False)},
+        ),
+        (
             plv.column,
+            sample_df().select(c.name),
+            ['Joe', 'Bob'],
+        ),
+        (
+            plv.keys,
             sample_df().select(c.name),
             ['Joe', 'Bob'],
         ),
@@ -182,6 +213,27 @@ def test_generic_validators_apply_pydantic_validation() -> None:
         'Joe': 23,
         'Bob': None,
     }
+    assert plv.keyed_records[dict[str, User]].validate(df.select(c.name, c.age)) == {
+        'Joe': User(name='Joe', age=23),
+        'Bob': User(name='Bob', age=None),
+    }
+    assert plv.keyed_rows[dict[str, UserRow]].validate(df.select(c.name, c.age)) == {
+        'Joe': UserRow('Joe', 23),
+        'Bob': UserRow('Bob', None),
+    }
+    assert plv.keys[tuple[str, ...]].validate(df.select(c.name)) == ('Joe', 'Bob')
+
+
+def test_keys_preserves_input_order() -> None:
+    df = pl.DataFrame({'x': [3, 1, 2]})
+
+    assert plv.keys.validate(df) == [3, 1, 2]
+
+
+def test_keys_allows_one_null() -> None:
+    df = pl.DataFrame({'x': [None, 1, 2, 3]})
+
+    assert plv.keys.validate(df) == [None, 1, 2, 3]
 
 
 def test_validate_model_and_collect_model_return_root_model() -> None:
@@ -295,10 +347,20 @@ def test_unconstrained_shapes_allow_empty_dataframes(
     ('validator', 'df', 'message'),
     [
         (plv.column, empty_df(), '`column` got 0 columns.'),
+        (plv.keys, empty_df(), '`keys` got 0 columns.'),
         (plv.column_entry, empty_df(), '`column_entry` got 0 columns.'),
         (plv.map, sample_df().select(c.name), '`map` got 1 columns.'),
         (plv.map, sample_df(), '`map` got 3 columns.'),
+        (
+            plv.record_map,
+            sample_df().select(c.name),
+            '`record_map` got 1 columns.',
+        ),
+        (plv.row_map, sample_df().select(c.name), '`row_map` got 1 columns.'),
+        (plv.keyed_records, empty_df(), '`keyed_records` got 0 columns.'),
+        (plv.keyed_rows, empty_df(), '`keyed_rows` got 0 columns.'),
         (plv.column, sample_df().select(c.name, c.age), '`column` got 2 columns.'),
+        (plv.keys, sample_df().select(c.name, c.age), '`keys` got 2 columns.'),
         (plv.column_entry, sample_df(), '`column_entry` got 3 columns.'),
         (plv.record, sample_df().head(0), '`record` got 0 rows.'),
         (plv.record, sample_df(), '`record` got 2 rows.'),
@@ -318,6 +380,55 @@ def test_unconstrained_shapes_allow_empty_dataframes(
     ],
 )
 def test_shape_validators_raise_clear_errors_for_bad_query_structure(
+    validator: type[BaseValidator[object]],
+    df: pl.DataFrame,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        validator.validate(df)
+
+
+@pytest.mark.parametrize(
+    ('validator', 'df', 'message'),
+    [
+        (
+            plv.map,
+            pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
+            '`map` got duplicates in column, name.',
+        ),
+        (
+            plv.record_map,
+            pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
+            '`record_map` got duplicates in column, name.',
+        ),
+        (
+            plv.row_map,
+            pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
+            '`row_map` got duplicates in column, name.',
+        ),
+        (
+            plv.keyed_records,
+            pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
+            '`keyed_records` got duplicates in column, name.',
+        ),
+        (
+            plv.keyed_rows,
+            pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
+            '`keyed_rows` got duplicates in column, name.',
+        ),
+        (
+            plv.keys,
+            pl.DataFrame({'name': ['Joe', 'Joe']}),
+            '`keys` got duplicates in column, name.',
+        ),
+        (
+            plv.keys,
+            pl.DataFrame({'name': [None, None, 'Joe']}),
+            '`keys` got duplicates in column, name.',
+        ),
+    ],
+)
+def test_unique_shapes_raise_clear_errors_for_duplicate_keys(
     validator: type[BaseValidator[object]],
     df: pl.DataFrame,
     message: str,
@@ -402,12 +513,17 @@ def test_validate_module_exports_expected_public_api() -> None:
         'records',
         'rows',
         'columns',
+        'record_map',
+        'row_map',
+        'keyed_records',
+        'keyed_rows',
         'column_map',
         'column_entries',
         'table_records',
         'table_rows',
         'table_columns',
         'column',
+        'keys',
         'column_entry',
         'map',
         'record',
