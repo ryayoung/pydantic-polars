@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING, Unpack
 from pydantic import RootModel
-from pydantic._internal._generics import (
-    get_args,
-)  # Need this for inspecting generic models
+from pydantic._internal._generics import get_args  # Needed for inspecting models
 from polars import DataFrame, LazyFrame
 from .._typing import CollectKwargs, CollectAsyncKwargs
 
@@ -51,7 +49,10 @@ class BaseValidator[T](_TotallyNotARootModel[T]):
         """Validate a DataFrame to a `RootModel[T]`, which wraps `T`
         while offering Pydantic model methods for serialization, etc.
         """
-        return cls.root_model().model_validate(cls._dataframe_to_python(df))
+        model_cls = cls.root_model()
+        if get_args(model_cls):
+            return model_cls.model_validate(cls._dataframe_to_python(df))
+        return model_cls.model_construct(cls._dataframe_to_python(df))
 
     # LazyFrame
 

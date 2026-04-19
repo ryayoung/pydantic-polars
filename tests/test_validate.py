@@ -1,13 +1,16 @@
 # pyright: reportPrivateUsage=false
 
 import asyncio
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
+# --
 import polars as pl
 import pytest
 from pydantic import BaseModel, RootModel
+from pydantic_core import ValidationError
 from polars import col as c
 
+# --
 from pydantic_polars import validate as plv
 from pydantic_polars._validate import _frame
 from pydantic_polars._validate._base_validator import BaseValidator, DeferredValidation
@@ -506,6 +509,19 @@ def test_base_validator_requires_dataframe_conversion_override() -> None:
 
     with pytest.raises(NotImplementedError):
         MissingImplementation.validate(pl.DataFrame({'value': [1]}))
+
+
+def test_unspecialized_validator_skips_pydantic_validation() -> None:
+    class fake[T: Any = int](BaseValidator[T]):
+        @classmethod
+        def _dataframe_to_python(cls, _: pl.DataFrame, /) -> Any:
+            return 'not an int'
+
+    df = pl.DataFrame({'value': [1]})
+
+    assert fake.validate(df) == 'not an int'
+    with pytest.raises(ValidationError):
+        fake[int].validate(df)
 
 
 def test_validate_module_exports_expected_public_api() -> None:
