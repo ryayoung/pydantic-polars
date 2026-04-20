@@ -64,33 +64,41 @@ age = plv.get_item[int].collect(
 )  # -> int | None
 ```
 
-## 1. Pick a Shape
+---
 
-A *shape* is a fixed, non-configurable representation of a dataframe as plain Python objects.
-
-`records` means, *Produce a list of row dicts*. It translates to `df.rows(named=True)`.
-
-`records[T]` means, *Produce `T` by passing a list of row dicts as input to Pydantic validation*.
+Each name after `plv.` is a **shape**.
 
 ```python
-plv.<shape>.collect(lf)     # Returns Default T for <shape>
-plv.<shape>[T].collect(lf)  # Returns T
+plv.<shape>.collect(lf)     # Returns primitive T for <shape>
+plv.<shape>[T].collect(lf)  # Returns T  (yes, T can be any type form)
 ```
 
+> Example: `plv.records` -> `list[dict[Any]]` whereas `plv.records[T]` -> `T` by passing `list[dict[Any]]` through Pydantic.
+
+A shape is a **fixed contract**. A structural guarantee.
+
+Part of the contract is that **all values in the dataframe are returned** (materializing data you don't need is a **bug**).
+
+Example: `map` makes a tall dict from 2 columns, but only if column 0 was unique. (if `len(result) == input_df.height`)
+
+A shape has **only one meaning**. It can't be configured to change the structure.
+
+Example: `item` doesn't just grab a value, it asserts the dataframe has *exactly 1 value*. If it may have 0, that's a different shape: `get_item`.
+
+
+### Step 1. Pick a Shape
+
 - **Scalar**
-  - `item`: One value.
+  - `item`: One value. `get_item`: 0 or one.
 - **Row-oriented**
-  - `record`: One row as a dict. `records`: List of many.
-  - `row`: One row as a tuple. `rows`: List of many.
-  - `map`: The rows of 2 columns, as one {col0: col1} dict.
-  - `keyed_records`: Rows as one {col0: record} dict.
-  - `keyed_rows`: Rows as one {col0: row} dict.
-  - `record_map`: Rows of 2+ columns, as one {col0: {**rest_record}} dict.
-  - `row_map`: Rows of 2+ columns, as one {col0: (*rest_row)} dict.
+  - `record`: One row as a dict. `get_record`: 0 or one. `records`: List of any.
+  - `row`: One row as a tuple. `get_row`: 0 or one. `rows`: List of any.
+  - `keyed_records`, `keyed_rows`: One tall dict with column-0 keys to **full-record/row** values.
+  - `map`: One tall dict from 2 columns: `{col0: col1}`
+  - `record_map`, `row_map`: Like `keyed_*`, but column-0 isn't included in values.
 - **Column-oriented**
-  - `column`: One column as a list of values. `columns`: Tuple of many.
-  - `keys`: One unique column as a list of values.
-  - `column_entry`: One (name, column). `column_entries`: Tuple of many.
+  - `column`: One column as a list (use `keys` if unique). `columns`: Tuple of any.
+  - `column_entry`: One (name, column). `column_entries`: Tuple of any.
   - `column_map`: Many columns, as one {name: column} dict.
 - **With table header**
   - `table_records`: (names, records)
@@ -98,43 +106,62 @@ plv.<shape>[T].collect(lf)  # Returns T
   - `table_columns`: (names, columns)
 
 
-| Shape            | Default `T`                  | Returns     | Input query must produce |
-|------------------|------------------------------|-------------|--------------------------|
-| `item`           | `Any`                        | `T`         | height == 1, width == 1  |
-| `column`         | `list[item]`                 | `T`         | width == 1               |
-| `keys`           | `list[item]`                 | `T`         | width == 1, col0 UNIQUE  |
-| `row`            | `tuple[item, ...]`           | `T`         | height == 1              |
-| `record`         | `dict[name, item]`           | `T`         | height == 1              |
-| `column_entry`   | `tuple[name, column]`        | `T`         | width == 1               |
-| `records`        | `list[record]`               | `T`         |                          |
-| `rows`           | `list[row]`                  | `T`         |                          |
-| `columns`        | `tuple[column, ...]`         | `T`         |                          |
-| `keyed_records`  | `dict[item, record]`         | `T`         | width >= 1, col0 UNIQUE  |
-| `keyed_rows`     | `dict[item, row]`            | `T`         | width >= 1, col0 UNIQUE  |
-| `map`            | `dict[item, item]`           | `T`         | width == 2, col0 UNIQUE  |
-| `record_map`     | `dict[item, partial_record]` | `T`         | width >= 2, col0 UNIQUE  |
-| `row_map`        | `dict[item, partial_row]`    | `T`         | width >= 2, col0 UNIQUE  |
-| `column_entries` | `tuple[column_entry, ...]`   | `T`         |                          |
-| `column_map`     | `dict[name, column]`         | `T`         |                          |
-| `table_columns`  | `tuple[names, columns]`      | `T`         |                          |
-| `table_rows`     | `tuple[names, rows]`         | `T`         |                          |
-| `table_records`  | `tuple[names, records]`      | `T`         |                          |
-| `get_item`       | `item`                       | `T or None` | height <= 1, width == 1  |
-| `get_row`        | `row`                        | `T or None` | height <= 1              |
-| `get_record`     | `record`                     | `T or None` | height <= 1              |
+### Step 2 (optional). Set a custom `T` for Pydantic to validate into
 
+Examples:
 
-## 2. Call a method to create `T`
+```python
+plv.column[list[float]]
+plv.column[tuple[float, ...]]
+plv.column[list[float] | list[Decimal]]
+plv.column[list[float | None]]
+plv.column[MyCustomArrayType[float | None]]
+```
 
-All shapes have the same methods.
+> [!TIP]
+> Skipping this step (e.g. `plv.column.collect(lf)`) means skipping Pydantic validation. For `column`, this means you get `lf.collect().to_series().to_list()` directly.
+
+### Step 3. Call a method to create `T`
+
+All shapes have the same methods. These ones return `T`:
 
 ```python
 # Single query
 result = shape.collect(lf)
 result = await shape.collect_async(lf)
 result = shape.validate(df)  # DataFrame equivalent
-
 # Parallel queries
 result1, result2 = plv.collect_all(shape.defer(lf1), shape.defer(lf2))
 result1, result2 = await plv.collect_all_async(shape.defer(lf1), shape.defer(lf2))
 ```
+
+`*_model` variants of each method also exist, to return `T` wrapped in `pydantic.RootModel[T]`. For example, `.collect(lf)` returns `T`, whereas `.collect_model(lf)` returns `RootModel[T]`.
+
+**All** methods are statically type-safe, so your type-checker/IDE will understand the resulting variable. Even with `foo, bar = plv.collect_all(...)`, the exact type of `bar` will be understood.
+
+## Shapes
+
+| Shape            | Default `T`                  | Input df **must** have  |
+|------------------|------------------------------|-------------------------|
+| `item`           | `Any`                        | height == 1, width == 1 |
+| `get_item`       | `Any`                        | height <= 1, width == 1 |
+| `column`         | `list[item]`                 | width == 1              |
+| `keys`           | `list[item]`                 | width == 1, col0 UNIQUE |
+| `row`            | `tuple[item, ...]`           | height == 1             |
+| `get_row`        | `tuple[item, ...]`           | height <= 1             |
+| `record`         | `dict[name, item]`           | height == 1             |
+| `get_record`     | `dict[name, item]`           | height <= 1             |
+| `column_entry`   | `tuple[name, column]`        | width == 1              |
+| `records`        | `list[record]`               |                         |
+| `rows`           | `list[row]`                  |                         |
+| `columns`        | `tuple[column, ...]`         |                         |
+| `keyed_records`  | `dict[item, record]`         | width >= 1, col0 UNIQUE |
+| `keyed_rows`     | `dict[item, row]`            | width >= 1, col0 UNIQUE |
+| `map`            | `dict[item, item]`           | width == 2, col0 UNIQUE |
+| `record_map`     | `dict[item, partial_record]` | width >= 2, col0 UNIQUE |
+| `row_map`        | `dict[item, partial_row]`    | width >= 2, col0 UNIQUE |
+| `column_entries` | `tuple[column_entry, ...]`   |                         |
+| `column_map`     | `dict[name, column]`         |                         |
+| `table_columns`  | `tuple[names, columns]`      |                         |
+| `table_rows`     | `tuple[names, rows]`         |                         |
+| `table_records`  | `tuple[names, records]`      |                         |
