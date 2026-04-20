@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING, Unpack
-from pydantic import RootModel
+from typing import Any, TYPE_CHECKING, ClassVar, Unpack
+from pydantic import RootModel, ConfigDict
 from pydantic._internal._generics import get_args  # Needed for inspecting models
 from polars import DataFrame, LazyFrame
 from .._typing import CollectKwargs, CollectAsyncKwargs
@@ -18,15 +18,23 @@ __all__ = ['BaseValidator', 'DeferredValidation']
 if TYPE_CHECKING:
 
     class _TotallyNotARootModel[T]:
+        model_config: ClassVar[PolarsConfigDict] = {}
+
         @classmethod
         def root_model(cls) -> type[RootModel[T]]: ...
 
 else:
 
     class _TotallyNotARootModel[T](RootModel[T]):
+        model_config: ClassVar[PolarsConfigDict] = {}
+
         @classmethod
         def root_model(cls):
             return cls
+
+
+class PolarsConfigDict(ConfigDict, total=False):
+    pass
 
 
 class BaseValidator[T](_TotallyNotARootModel[T]):
@@ -36,6 +44,8 @@ class BaseValidator[T](_TotallyNotARootModel[T]):
 
     Pydantic validation is only performed if a generic type argument is given for T.
     """
+
+    model_config: ClassVar[PolarsConfigDict] = {}
 
     # DataFrame
 

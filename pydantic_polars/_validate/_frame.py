@@ -2,58 +2,56 @@
 DataFrame/LazyFrame validators for various data shape interpretations.
 """
 
-from typing import Any
+from typing import Any, Callable
 import polars as pl
 from polars import DataFrame
 from ._base_validator import BaseValidator
 
 __all__ = [
-    'columns',
-    'records',
-    'rows',
-    'map',
-    'record_map',
-    'row_map',
-    'keyed_records',
-    'keyed_rows',
-    'column_map',
-    'column_entries',
-    'table_records',
-    'table_rows',
-    'table_columns',
-    'column',
-    'keys',
-    'column_entry',
-    'record',
-    'get_record',
-    'row',
-    'get_row',
-    'item',
-    'get_item',
+    'Columns',
+    'Records',
+    'Rows',
+    'Map',
+    'RecordMap',
+    'RowMap',
+    'KeyedRecords',
+    'KeyedRows',
+    'ColumnMap',
+    'ColumnEntries',
+    'TableRecords',
+    'TableRows',
+    'TableColumns',
+    'Column',
+    'Keys',
+    'ColumnEntry',
+    'Record',
+    'GetRecord',
+    'Row',
+    'GetRow',
+    'Item',
+    'GetItem',
 ]
 
 # Default types (when no pydantic validation is desired)
-type _Item = Any  # Single cell value
+type ItemT = Any  # Single cell value
 
-type _Name = str  # Column name
-type _Column = list[_Item]  # Values in a column
-type _Record = dict[_Name, _Item]  # A row as a dict
-type _Row = tuple[_Item, ...]  # A row as a tuple
-type _ColumnEntry = tuple[_Name, _Column]  # A column name and its values
+type NameT = str  # Column name
+type ColumnT = list[ItemT]  # Values in a column
+type RecordT = dict[NameT, ItemT]  # A row as a dict
+type RowT = tuple[ItemT, ...]  # A row as a tuple
+type ColumnEntryT = tuple[NameT, ColumnT]  # A column name and its values
 
-type _Names = tuple[_Name, ...]  # All column names
-type _Columns = tuple[_Column, ...]  # All values in all columns
-type _Rows = list[_Row]  # All rows as tuples
-type _Records = list[_Record]  # All rows as dicts
-type _ColumnEntries = tuple[
-    _ColumnEntry, ...
-]  # All column entries as (name, values) pairs
+type NamesT = tuple[NameT, ...]  # All column names
+type ColumnsT = tuple[ColumnT, ...]  # All values in all columns
+type RowsT = list[RowT]  # All rows as tuples
+type RecordsT = list[RecordT]  # All rows as dicts
+type ColumnEntriesT = tuple[ColumnEntryT, ...]
 
 
 # Row-wise, many
 
 
-class columns[T: Any = _Columns](BaseValidator[T]):
+class Columns[T: Any = ColumnsT](BaseValidator[T]):
     """
     Validate a tuple of columns.
     - `T` : The tuple of column value lists.
@@ -61,11 +59,11 @@ class columns[T: Any = _Columns](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Columns:
+    def _dataframe_to_python(cls, df: DataFrame) -> ColumnsT:
         return tuple(c.to_list() for c in df)
 
 
-class records[T: Any = _Records](BaseValidator[T]):
+class Records[T: Any = RecordsT](BaseValidator[T]):
     """
     Validate a list of row dicts.
     - `T` : The list of row dicts
@@ -73,11 +71,11 @@ class records[T: Any = _Records](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Records:
+    def _dataframe_to_python(cls, df: DataFrame) -> RecordsT:
         return df.rows(named=True)
 
 
-class rows[T: Any = _Rows](BaseValidator[T]):
+class Rows[T: Any = RowsT](BaseValidator[T]):
     """
     Validate a list of row tuples.
     - `T` : The list of row tuples.
@@ -85,14 +83,14 @@ class rows[T: Any = _Rows](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Rows:
+    def _dataframe_to_python(cls, df: DataFrame) -> RowsT:
         return df.rows()
 
 
 # Row-wise, unique
 
 
-class map[T: Any = dict[_Item, _Item]](BaseValidator[T]):
+class Map[T: Any = dict[ItemT, ItemT]](BaseValidator[T]):
     """
     Validate the dict that maps keys from the first column to values in the second.
     - Query must produce exactly 2 columns. The first must be unique.
@@ -101,14 +99,14 @@ class map[T: Any = dict[_Item, _Item]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> dict[_Item, _Item]:
+    def _dataframe_to_python(cls, df: DataFrame) -> dict[ItemT, ItemT]:
         _raise_if_bad_query_structure(cls, df, max_width=2, min_width=2)
         result = dict(df.rows())
         _raise_if_duplicates(df.height, len(result), cls, df.columns[0])
         return result
 
 
-class record_map[T: Any = dict[_Item, _Record]](BaseValidator[T]):
+class RecordMap[T: Any = dict[ItemT, RecordT]](BaseValidator[T]):
     """
     Validate the dict that maps keys from the first column to dict records
     made from the remaining columns.
@@ -118,7 +116,7 @@ class record_map[T: Any = dict[_Item, _Record]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> dict[_Item, _Record]:
+    def _dataframe_to_python(cls, df: DataFrame) -> dict[ItemT, RecordT]:
         _raise_if_bad_query_structure(cls, df, min_width=2)
         values = df.select(*df.columns[1:]).rows(named=True)
         result = dict(zip(df.to_series(0).to_list(), values))
@@ -126,7 +124,7 @@ class record_map[T: Any = dict[_Item, _Record]](BaseValidator[T]):
         return result
 
 
-class row_map[T: Any = dict[_Item, _Row]](BaseValidator[T]):
+class RowMap[T: Any = dict[ItemT, RowT]](BaseValidator[T]):
     """
     Validate the dict that maps keys from the first column to row tuples
     made from the remaining columns.
@@ -136,7 +134,7 @@ class row_map[T: Any = dict[_Item, _Row]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> dict[_Item, _Row]:
+    def _dataframe_to_python(cls, df: DataFrame) -> dict[ItemT, RowT]:
         _raise_if_bad_query_structure(cls, df, min_width=2)
         values = df.select(*df.columns[1:]).rows()
         result = dict(zip(df.to_series(0).to_list(), values))
@@ -144,7 +142,7 @@ class row_map[T: Any = dict[_Item, _Row]](BaseValidator[T]):
         return result
 
 
-class keyed_records[T: Any = dict[_Item, _Record]](BaseValidator[T]):
+class KeyedRecords[T: Any = dict[ItemT, RecordT]](BaseValidator[T]):
     """
     Validate the dict that maps keys from the first column to full dict
     records with all columns, i.e. the same values as those from `records`.
@@ -154,14 +152,14 @@ class keyed_records[T: Any = dict[_Item, _Record]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> dict[_Item, _Record]:
+    def _dataframe_to_python(cls, df: DataFrame) -> dict[ItemT, RecordT]:
         _raise_if_bad_query_structure(cls, df, min_width=1)
         result = dict(zip(df.to_series(0).to_list(), df.rows(named=True)))
         _raise_if_duplicates(df.height, len(result), cls, df.columns[0])
         return result
 
 
-class keyed_rows[T: Any = dict[_Item, _Row]](BaseValidator[T]):
+class KeyedRows[T: Any = dict[ItemT, RowT]](BaseValidator[T]):
     """
     Validate the dict that maps keys from the first column to full row
     tuples with all columns, i.e. the same values as those from `rows`.
@@ -171,7 +169,7 @@ class keyed_rows[T: Any = dict[_Item, _Row]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> dict[_Item, _Row]:
+    def _dataframe_to_python(cls, df: DataFrame) -> dict[ItemT, RowT]:
         _raise_if_bad_query_structure(cls, df, min_width=1)
         result = dict(zip(df.to_series(0).to_list(), df.rows()))
         _raise_if_duplicates(df.height, len(result), cls, df.columns[0])
@@ -181,7 +179,7 @@ class keyed_rows[T: Any = dict[_Item, _Row]](BaseValidator[T]):
 # Column names paired with data
 
 
-class column_entries[T: Any = _ColumnEntries](BaseValidator[T]):
+class ColumnEntries[T: Any = ColumnEntriesT](BaseValidator[T]):
     """
     Validate a tuple of (name, column) pairs.
     - `T` : The tuple of (column name, value list) pairs.
@@ -189,11 +187,11 @@ class column_entries[T: Any = _ColumnEntries](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _ColumnEntries:
+    def _dataframe_to_python(cls, df: DataFrame) -> ColumnEntriesT:
         return tuple((s.name, s.to_list()) for s in df)
 
 
-class column_map[T: Any = dict[_Name, _Column]](BaseValidator[T]):
+class ColumnMap[T: Any = dict[NameT, ColumnT]](BaseValidator[T]):
     """
     Validate a dict of name -> column.
     - `T` : The dict with column name keys and value-list values.
@@ -201,14 +199,14 @@ class column_map[T: Any = dict[_Name, _Column]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> dict[_Name, _Column]:
+    def _dataframe_to_python(cls, df: DataFrame) -> dict[NameT, ColumnT]:
         return {s.name: s.to_list() for s in df}
 
 
 # Column names separated from data
 
 
-class table_records[T: Any = tuple[_Names, _Records]](BaseValidator[T]):
+class TableRecords[T: Any = tuple[NamesT, RecordsT]](BaseValidator[T]):
     """
     Validate the pair, (names, records).
     - `T` : The tuple, (tuple-of-names, list-of-row-dicts).
@@ -216,11 +214,11 @@ class table_records[T: Any = tuple[_Names, _Records]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> tuple[_Names, _Records]:
+    def _dataframe_to_python(cls, df: DataFrame) -> tuple[NamesT, RecordsT]:
         return (tuple(df.columns), df.rows(named=True))
 
 
-class table_rows[T: Any = tuple[_Names, _Rows]](BaseValidator[T]):
+class TableRows[T: Any = tuple[NamesT, RowsT]](BaseValidator[T]):
     """
     Validate the pair, (names, rows).
     - `T` : The tuple, (tuple-of-names, list-of-row-tuples).
@@ -228,11 +226,11 @@ class table_rows[T: Any = tuple[_Names, _Rows]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> tuple[_Names, _Rows]:
+    def _dataframe_to_python(cls, df: DataFrame) -> tuple[NamesT, RowsT]:
         return (tuple(df.columns), df.rows())
 
 
-class table_columns[T: Any = tuple[_Names, _Columns]](BaseValidator[T]):
+class TableColumns[T: Any = tuple[NamesT, ColumnsT]](BaseValidator[T]):
     """
     Validate the pair, (names, columns).
     - `T` : The tuple, (tuple-of-names, tuple-of-values-lists).
@@ -240,14 +238,14 @@ class table_columns[T: Any = tuple[_Names, _Columns]](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> tuple[_Names, _Columns]:
+    def _dataframe_to_python(cls, df: DataFrame) -> tuple[NamesT, ColumnsT]:
         return (tuple(df.columns), tuple(s.to_list() for s in df))
 
 
 # Single (horizontal)
 
 
-class column[T: Any = _Column](BaseValidator[T]):
+class Column[T: Any = ColumnT](BaseValidator[T]):
     """
     Validate the list of values in a single column.
     - Query must produce exactly one column.
@@ -256,12 +254,12 @@ class column[T: Any = _Column](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Column:
+    def _dataframe_to_python(cls, df: DataFrame) -> ColumnT:
         _raise_if_bad_query_structure(cls, df, min_width=1, max_width=1)
         return df.to_series(0).to_list()
 
 
-class keys[T: Any = _Column](BaseValidator[T]):
+class Keys[T: Any = ColumnT](BaseValidator[T]):
     """
     Validate the list of values in a single unique column (preserves order).
     - Query must produce exactly one column. That column must be unique.
@@ -270,14 +268,14 @@ class keys[T: Any = _Column](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Column:
+    def _dataframe_to_python(cls, df: DataFrame) -> ColumnT:
         _raise_if_bad_query_structure(cls, df, min_width=1, max_width=1)
         series = df.to_series(0)
         _raise_if_duplicates(df.height, series.n_unique(), cls, df.columns[0])
         return series.to_list()
 
 
-class column_entry[T: Any = _ColumnEntry](BaseValidator[T]):
+class ColumnEntry[T: Any = ColumnEntryT](BaseValidator[T]):
     """
     For a query that produces one column, validate (column-name, values-list).
     - `T` : The tuple of (column-name, list-of-values).
@@ -285,7 +283,7 @@ class column_entry[T: Any = _ColumnEntry](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _ColumnEntry:
+    def _dataframe_to_python(cls, df: DataFrame) -> ColumnEntryT:
         _raise_if_bad_query_structure(cls, df, min_width=1, max_width=1)
         return (df.columns[0], df.to_series(0).to_list())
 
@@ -293,7 +291,7 @@ class column_entry[T: Any = _ColumnEntry](BaseValidator[T]):
 # Single (vertical)
 
 
-class record[T: Any = _Record](BaseValidator[T]):
+class Record[T: Any = RecordT](BaseValidator[T]):
     """
     For a query that produces exactly one row, validate the row dict.
     - `T` : The row dict.
@@ -301,22 +299,22 @@ class record[T: Any = _Record](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Record:
+    def _dataframe_to_python(cls, df: DataFrame) -> RecordT:
         _raise_if_bad_query_structure(cls, df, min_height=1, max_height=1)
         return df.rows(named=True)[0]
 
 
-class get_record[T: Any = _Record](BaseValidator[T | None]):
+class GetRecord[T: Any = RecordT](BaseValidator[T | None]):
     """Same as `record`, but returns None if no row found."""
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Record | Any:
+    def _dataframe_to_python(cls, df: DataFrame) -> RecordT | None:
         _raise_if_bad_query_structure(cls, df, max_height=1)
         records = df.rows(named=True)
         return None if len(records) == 0 else records[0]
 
 
-class row[T: Any = _Row](BaseValidator[T]):
+class Row[T: Any = RowT](BaseValidator[T]):
     """
     For a query that produces exactly one row, validate the row tuple.
     - `T` : The row tuple.
@@ -324,22 +322,22 @@ class row[T: Any = _Row](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Row:
+    def _dataframe_to_python(cls, df: DataFrame) -> RowT:
         _raise_if_bad_query_structure(cls, df, min_height=1, max_height=1)
         return df.rows()[0]
 
 
-class get_row[T: Any = _Row](BaseValidator[T | None]):
+class GetRow[T: Any = RowT](BaseValidator[T | None]):
     """Same as `row`, but returns None if no row found."""
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Row | Any:
+    def _dataframe_to_python(cls, df: DataFrame) -> RowT | None:
         _raise_if_bad_query_structure(cls, df, max_height=1)
         rows = df.rows()
         return None if len(rows) == 0 else rows[0]
 
 
-class item[T: Any = _Item](BaseValidator[T]):
+class Item[T: Any = ItemT](BaseValidator[T]):
     """
     For a query that produces exactly one value, validate the value.
     - `T` : The single value.
@@ -347,24 +345,24 @@ class item[T: Any = _Item](BaseValidator[T]):
     """
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Item:
+    def _dataframe_to_python(cls, df: DataFrame) -> ItemT:
         _raise_if_bad_query_structure(
             cls, df, min_height=1, max_height=1, min_width=1, max_width=1
         )
         return df.item()
 
 
-class get_item[T: Any = _Item](BaseValidator[T | None]):
+class GetItem[T: Any = ItemT](BaseValidator[T | None]):
     """Same as `item`, but returns None if no value found."""
 
     @classmethod
-    def _dataframe_to_python(cls, df: DataFrame) -> _Item:
+    def _dataframe_to_python(cls, df: DataFrame) -> ItemT | None:
         _raise_if_bad_query_structure(cls, df, max_height=1, min_width=1, max_width=1)
         return None if df.height == 0 else df.item()
 
 
 def _raise_if_bad_query_structure(
-    cls: type[Any],
+    cls: type[Any] | Callable[..., Any],
     df: pl.DataFrame,
     *,
     min_height: int | None = None,
