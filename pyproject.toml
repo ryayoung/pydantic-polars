@@ -7,7 +7,7 @@ packages = ["pydantic_polars"]
 
 [project]
 name = "pydantic-polars"
-version = "0.0.2"
+version = "0.0.3"
 requires-python = ">=3.14"
 description = "Bring polars data back to Python objects, safely. Validation, schema/query generation."
 authors = [
@@ -38,6 +38,7 @@ dev = [
     "pytest-cov>=6.1.1",
     "ruff>=0.11.12",
     "taskipy>=1.14.1",
+    "twine>=6.2.0",
 ]
 
 [tool.taskipy.tasks]
