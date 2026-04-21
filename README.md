@@ -145,12 +145,12 @@ result1, result2 = await plv.collect_all_async(shape.defer(lf1), shape.defer(lf2
 |------------------|------------------------------|-------------------------|
 | `item`           | `Any`                        | height == 1, width == 1 |
 | `get_item`       | `Any`                        | height <= 1, width == 1 |
-| `column`         | `list[item]`                 | width == 1              |
-| `keys`           | `list[item]`                 | width == 1, col0 UNIQUE |
-| `row`            | `tuple[item, ...]`           | height == 1             |
-| `get_row`        | `tuple[item, ...]`           | height <= 1             |
 | `record`         | `dict[name, item]`           | height == 1             |
 | `get_record`     | `dict[name, item]`           | height <= 1             |
+| `row`            | `tuple[item, ...]`           | height == 1             |
+| `get_row`        | `tuple[item, ...]`           | height <= 1             |
+| `column`         | `list[item]`                 | width == 1              |
+| `keys`           | `list[item]`                 | width == 1, col0 UNIQUE |
 | `column_entry`   | `tuple[name, column]`        | width == 1              |
 | `records`        | `list[record]`               |                         |
 | `rows`           | `list[row]`                  |                         |
@@ -160,8 +160,630 @@ result1, result2 = await plv.collect_all_async(shape.defer(lf1), shape.defer(lf2
 | `map`            | `dict[item, item]`           | width == 2, col0 UNIQUE |
 | `record_map`     | `dict[item, partial_record]` | width >= 2, col0 UNIQUE |
 | `row_map`        | `dict[item, partial_row]`    | width >= 2, col0 UNIQUE |
-| `column_entries` | `tuple[column_entry, ...]`   |                         |
 | `column_map`     | `dict[name, column]`         |                         |
-| `table_columns`  | `tuple[names, columns]`      |                         |
-| `table_rows`     | `tuple[names, rows]`         |                         |
+| `column_entries` | `tuple[column_entry, ...]`   |                         |
 | `table_records`  | `tuple[names, records]`      |                         |
+| `table_rows`     | `tuple[names, rows]`         |                         |
+| `table_columns`  | `tuple[names, columns]`      |                         |
+
+
+<table>
+<tr>
+<td colspan="2">
+<code>item</code>, <code>get_item</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌──────┐
+│ name │
+╞══════╡
+│ Joy  │
+└──────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+ 
+'Joy'
+ 
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>map</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┐
+│ id ┆ name │
+╞════╪══════╡
+│ A  ┆ Joy  │
+│ B  ┆ Ben  │
+│ C  ┆ Jin  │
+└────┴──────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+{
+  'A': 'Joy',
+  'B': 'Ben',
+  'C': 'Jin',
+}
+ 
+```
+
+</td>
+</tr>
+
+
+<tr>
+<td colspan="2">
+<code>record</code>, <code>get_record</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+
+ 
+{ id: 'A', name: 'Joy', age: 59 }
+ 
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>records</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+[
+  { id: 'A', name: 'Joy', age: 59 },
+  { id: 'B', name: 'Ben', age: 25 },
+  { id: 'C', name: 'Jin', age: 40 },
+]
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>record_map</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+{
+  'A': { name: 'Joy', age: 59 },
+  'B': { name: 'Ben', age: 25 },
+  'C': { name: 'Jin', age: 40 },
+}
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>keyed_records</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+{
+  'A': { id: 'A', name: 'Joy', age: 59 },
+  'B': { id: 'B', name: 'Ben', age: 25 },
+  'C': { id: 'C', name: 'Jin', age: 40 },
+}
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>table_records</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+(
+  ('id', 'name', 'age'),
+  [
+    {'id': 'A', 'name': 'Joy', 'age': 59},
+    {'id': 'B', 'name': 'Ben', 'age': 25},
+    {'id': 'C', 'name': 'Jin', 'age': 40},
+  ],
+)
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>row</code>, <code>get_row</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+ 
+ 
+ 
+('A', 'Joy', 59)
+ 
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>rows</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+ 
+ 
+[
+  ('A', 'Joy', 59),
+  ('B', 'Ben', 25),
+  ('C', 'Jin', 40),
+]
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>row_map</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+ 
+ 
+{
+  'A': ('Joy', 59),
+  'B': ('Ben', 25),
+  'C': ('Jin', 40),
+}
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>keyed_rows</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+ 
+ 
+{
+  'A': ('A', 'Joy', 59),
+  'B': ('B', 'Ben', 25),
+  'C': ('C', 'Jin', 40),
+}
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>table_rows</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+(
+  ('id', 'name', 'age'),
+  [
+    ('A', 'Joy', 59),
+    ('B', 'Ben', 25),
+    ('C', 'Jin', 40),
+  ],
+)
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>column</code>, <code>keys</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌──────┐
+│ name │
+╞══════╡
+│ Joy  │
+│ Ben  │
+│ Jin  │
+└──────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+[
+  'Joy',
+  'Ben',
+  'Jin',
+]
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>column_entry</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌──────┐
+│ name │
+╞══════╡
+│ Joy  │
+│ Ben  │
+│ Jin  │
+└──────┘
+```
+
+</td>
+<td>
+
+```py
+(
+  'name',
+  [
+    'Joy',
+    'Ben',
+    'Jin'
+  ]
+)
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>columns</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+ 
+ 
+(
+  ['A', 'B', 'C'],
+  ['Joy', 'Ben', 'Jin'],
+  [59, 25, 40],
+)
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>column_map</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```js
+ 
+ 
+{
+  id: ['A', 'B', 'C'],
+  name: ['Joy', 'Ben', 'Jin'],
+  age: [59, 25, 40],
+}
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>column_entries</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+ 
+ 
+(
+  ('id', ['A', 'B', 'C']),
+  ('name', ['Joy', 'Ben', 'Jin']),
+  ('age', [59, 25, 40]),
+)
+ 
+```
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2">
+<code>table_columns</code>
+</td>
+</tr>
+<tr>
+<td>
+
+```
+┌────┬──────┬─────┐
+│ id ┆ name ┆ age │
+╞════╪══════╪═════╡
+│ A  ┆ Joy  ┆ 59  │
+│ B  ┆ Ben  ┆ 25  │
+│ C  ┆ Jin  ┆ 40  │
+└────┴──────┴─────┘
+```
+
+</td>
+<td>
+
+```py
+(
+  ('id', 'name', 'age'),
+  (
+    ['A', 'B', 'C'],
+    ['Joy', 'Ben', 'Jin'],
+    [59, 25, 40],
+  ),
+)
+```
+
+</td>
+</tr>
+</table>
