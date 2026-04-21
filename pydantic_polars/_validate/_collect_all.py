@@ -2,7 +2,7 @@ from typing import Any, TYPE_CHECKING, overload, Unpack
 from pydantic import RootModel
 import polars as pl
 from .._typing import CollectAllKwargs, CollectAllAsyncKwargs
-from ._base_validator import DeferredValidation
+from ._base_shape import DeferredValidation
 
 __all__ = [
     'collect_all',

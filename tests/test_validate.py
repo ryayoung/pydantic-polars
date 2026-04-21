@@ -12,8 +12,8 @@ from polars import col as c
 
 # --
 from pydantic_polars import validate as plv
-from pydantic_polars._validate import _frame
-from pydantic_polars._validate._base_validator import BaseValidator, DeferredValidation
+from pydantic_polars._validate import _shape
+from pydantic_polars._validate._base_shape import BaseShape, DeferredValidation
 
 
 class User(BaseModel):
@@ -64,15 +64,6 @@ def empty_df() -> pl.DataFrame:
             plv.columns,
             sample_df(),
             (['Joe', 'Bob'], [23, None], [True, False]),
-        ),
-        (
-            plv.column_entries,
-            sample_df(),
-            (
-                ('name', ['Joe', 'Bob']),
-                ('age', [23, None]),
-                ('active', [True, False]),
-            ),
         ),
         (
             plv.column_map,
@@ -129,7 +120,7 @@ def empty_df() -> pl.DataFrame:
             {'Joe': (23, True), 'Bob': (None, False)},
         ),
         (
-            plv.keyed_records,
+            plv.keyed_record_map,
             sample_df(),
             {
                 'Joe': {'name': 'Joe', 'age': 23, 'active': True},
@@ -137,7 +128,7 @@ def empty_df() -> pl.DataFrame:
             },
         ),
         (
-            plv.keyed_rows,
+            plv.keyed_row_map,
             sample_df(),
             {'Joe': ('Joe', 23, True), 'Bob': ('Bob', None, False)},
         ),
@@ -150,11 +141,6 @@ def empty_df() -> pl.DataFrame:
             plv.keys,
             sample_df().select(c.name),
             ['Joe', 'Bob'],
-        ),
-        (
-            plv.column_entry,
-            sample_df().select(c.name),
-            ('name', ['Joe', 'Bob']),
         ),
         (
             plv.record,
@@ -189,7 +175,7 @@ def empty_df() -> pl.DataFrame:
     ],
 )
 def test_default_shape_validators_return_expected_python_objects(
-    validator: type[BaseValidator[object]],
+    validator: type[BaseShape[object]],
     df: pl.DataFrame,
     expected: object,
 ) -> None:
@@ -216,11 +202,11 @@ def test_generic_validators_apply_pydantic_validation() -> None:
         'Joe': 23,
         'Bob': None,
     }
-    assert plv.keyed_records[dict[str, User]].validate(df.select(c.name, c.age)) == {
+    assert plv.keyed_record_map[dict[str, User]].validate(df.select(c.name, c.age)) == {
         'Joe': User(name='Joe', age=23),
         'Bob': User(name='Bob', age=None),
     }
-    assert plv.keyed_rows[dict[str, UserRow]].validate(df.select(c.name, c.age)) == {
+    assert plv.keyed_row_map[dict[str, UserRow]].validate(df.select(c.name, c.age)) == {
         'Joe': UserRow('Joe', 23),
         'Bob': UserRow('Bob', None),
     }
@@ -333,7 +319,6 @@ def test_collect_all_async_variants_validate_multiple_lazy_frames() -> None:
         (plv.records, []),
         (plv.rows, []),
         (plv.columns, ()),
-        (plv.column_entries, ()),
         (plv.column_map, {}),
         (plv.table_records, ((), [])),
         (plv.table_rows, ((), [])),
@@ -341,7 +326,7 @@ def test_collect_all_async_variants_validate_multiple_lazy_frames() -> None:
     ],
 )
 def test_unconstrained_shapes_allow_empty_dataframes(
-    validator: type[BaseValidator[object]], expected: object
+    validator: type[BaseShape[object]], expected: object
 ) -> None:
     assert validator.validate(empty_df()) == expected
 
@@ -351,7 +336,6 @@ def test_unconstrained_shapes_allow_empty_dataframes(
     [
         (plv.column, empty_df(), 'got 0 columns.'),
         (plv.keys, empty_df(), 'got 0 columns.'),
-        (plv.column_entry, empty_df(), 'got 0 columns.'),
         (plv.map, sample_df().select(c.name), 'got 1 columns.'),
         (plv.map, sample_df(), 'got 3 columns.'),
         (
@@ -360,11 +344,10 @@ def test_unconstrained_shapes_allow_empty_dataframes(
             'got 1 columns.',
         ),
         (plv.row_map, sample_df().select(c.name), 'got 1 columns.'),
-        (plv.keyed_records, empty_df(), 'got 0 columns.'),
-        (plv.keyed_rows, empty_df(), 'got 0 columns.'),
+        (plv.keyed_record_map, empty_df(), 'got 0 columns.'),
+        (plv.keyed_row_map, empty_df(), 'got 0 columns.'),
         (plv.column, sample_df().select(c.name, c.age), 'got 2 columns.'),
         (plv.keys, sample_df().select(c.name, c.age), 'got 2 columns.'),
-        (plv.column_entry, sample_df(), 'got 3 columns.'),
         (plv.record, sample_df().head(0), 'got 0 rows.'),
         (plv.record, sample_df(), 'got 2 rows.'),
         (plv.row, sample_df().head(0), 'got 0 rows.'),
@@ -383,7 +366,7 @@ def test_unconstrained_shapes_allow_empty_dataframes(
     ],
 )
 def test_shape_validators_raise_clear_errors_for_bad_query_structure(
-    validator: type[BaseValidator[object]],
+    validator: type[BaseShape[object]],
     df: pl.DataFrame,
     message: str,
 ) -> None:
@@ -410,12 +393,12 @@ def test_shape_validators_raise_clear_errors_for_bad_query_structure(
             'got duplicates in column, name.',
         ),
         (
-            plv.keyed_records,
+            plv.keyed_record_map,
             pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
             'got duplicates in column, name.',
         ),
         (
-            plv.keyed_rows,
+            plv.keyed_row_map,
             pl.DataFrame({'name': ['Joe', 'Joe'], 'age': [23, 24]}),
             'got duplicates in column, name.',
         ),
@@ -432,7 +415,7 @@ def test_shape_validators_raise_clear_errors_for_bad_query_structure(
     ],
 )
 def test_unique_shapes_raise_clear_errors_for_duplicate_keys(
-    validator: type[BaseValidator[object]],
+    validator: type[BaseShape[object]],
     df: pl.DataFrame,
     message: str,
 ) -> None:
@@ -449,7 +432,7 @@ def test_unique_shapes_raise_clear_errors_for_duplicate_keys(
     ],
 )
 def test_optional_single_value_validators_allow_missing_but_respect_constraints(
-    validator: type[BaseValidator[object]],
+    validator: type[BaseShape[object]],
     df: pl.DataFrame,
 ) -> None:
     assert validator.validate(df) is None
@@ -474,7 +457,7 @@ def test_optional_single_value_validators_allow_missing_but_respect_constraints(
     ],
 )
 def test_optional_single_value_validators_still_enforce_shape_constraints(
-    validator: type[BaseValidator[object]],
+    validator: type[BaseShape[object]],
     df: pl.DataFrame,
     message: str,
 ) -> None:
@@ -496,7 +479,7 @@ def test_raise_if_bad_query_structure_covers_min_and_max_bounds(
     message: str,
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        _frame._raise_if_bad_query_structure(
+        _shape._raise_if_bad_df_dimensions(
             type('FakeValidator', (), {}),
             pl.DataFrame({'a': [1, 2], 'b': [3, 4]}),
             **kwargs,
@@ -504,7 +487,7 @@ def test_raise_if_bad_query_structure_covers_min_and_max_bounds(
 
 
 def test_base_validator_requires_dataframe_conversion_override() -> None:
-    class MissingImplementation(BaseValidator[int]):
+    class MissingImplementation(BaseShape[int]):
         pass
 
     with pytest.raises(NotImplementedError):
@@ -512,7 +495,7 @@ def test_base_validator_requires_dataframe_conversion_override() -> None:
 
 
 def test_unspecialized_validator_skips_pydantic_validation() -> None:
-    class fake[T: Any = int](BaseValidator[T]):
+    class fake[T: Any = int](BaseShape[T]):
         @classmethod
         def _dataframe_to_python(cls, _: pl.DataFrame, /) -> Any:
             return 'not an int'
