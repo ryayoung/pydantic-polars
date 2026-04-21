@@ -19,6 +19,7 @@ __all__ = [
     'CollectAllKwargs',
     'CollectAsyncKwargs',
     'CollectAllAsyncKwargs',
+    'CollectBatchesKwargs',
 ]
 
 # #######################################################################################
@@ -88,6 +89,18 @@ CollectAllAsyncKwargs = CollectAsyncKwargs
 """`pl.collect_all_async()` parameters."""
 
 
+class CollectBatchesKwargs(TypedDict, total=False):
+    """
+    `LazyFrame.collect_batches()` parameters.
+    """
+
+    chunk_size: int | None
+    maintain_order: bool
+    lazy: bool
+    engine: EngineType
+    optimizations: QueryOptFlags
+
+
 # STATIC TEST (raise pyright errors if above param types are incorrect)
 if TYPE_CHECKING:
     from typing import Unpack
@@ -104,3 +117,6 @@ if TYPE_CHECKING:
 
     def _(**kwargs: Unpack[CollectAllAsyncKwargs]):
         collect_all_async([LazyFrame()], **kwargs)
+
+    def _(**kwargs: Unpack[CollectBatchesKwargs]):
+        LazyFrame().collect_batches(**kwargs)

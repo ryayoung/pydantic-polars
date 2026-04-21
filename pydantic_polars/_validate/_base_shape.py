@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING, ClassVar, Unpack
+from typing import Any, TYPE_CHECKING, ClassVar, Unpack, Iterator
 from pydantic import RootModel, ConfigDict
 from polars import DataFrame, LazyFrame
-from .._typing import CollectKwargs, CollectAsyncKwargs
+from .._typing import CollectBatchesKwargs, CollectKwargs, CollectAsyncKwargs
 
-__all__ = ['BaseShape', 'DeferredValidation']
+__all__ = ['BaseShape', 'BaseBatchableShape', 'DeferredValidation']
 
 # Keep it a secret to Pyright that this is a subclass of RootModel.
 # I'm not yet sure whether this should be the long-term API solution, or if we'll want
@@ -124,6 +124,28 @@ class BaseShape[T](_RootModel[T]):
     to determine if disabling pydantic validation is safe. We are extra conservative for
     now, and only disable it if 'cls' actually *is* the original shape class.
     """
+
+
+class BaseBatchableShape[T](BaseShape[T]):
+    """
+    BaseShape subclass for shapes that support batch collection via `collect_batches()`.
+    """
+
+    @classmethod
+    def collect_batches(
+        cls, lf: LazyFrame, /, **kwargs: Unpack[CollectBatchesKwargs]
+    ) -> Iterator[T]:
+        """Validate batches of a LazyFrame, after collecting in streaming mode."""
+        for df in lf.collect_batches(**kwargs):
+            yield cls.validate(df)
+
+    @classmethod
+    def collect_model_batches(
+        cls, lf: LazyFrame, /, **kwargs: Unpack[CollectBatchesKwargs]
+    ) -> Iterator[RootModel[T]]:
+        """Validate batches of a LazyFrame to `RootModel[T]` objects."""
+        for df in lf.collect_batches(**kwargs):
+            yield cls.validate_model(df)
 
 
 @dataclass(slots=True, frozen=True)

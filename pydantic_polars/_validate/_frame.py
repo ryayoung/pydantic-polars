@@ -5,7 +5,7 @@ DataFrame/LazyFrame validators for various data shape interpretations.
 from typing import TYPE_CHECKING, Any, Callable
 import functools
 from polars import DataFrame
-from ._base_shape import BaseShape
+from ._base_shape import BaseBatchableShape, BaseShape
 from . import _shape as shp
 
 __all__ = [
@@ -151,7 +151,7 @@ class GetRowEntry[T: Any = shp.RowEntryT | None](BaseShape[T]):
         return shp.get_row_entry(df, None)
 
 
-class Column[T: Any = shp.ColumnT](BaseShape[T]):
+class Column[T: Any = shp.ColumnT](BaseBatchableShape[T]):
     """
     The list of values in a single column.
     - Query must produce exactly one column.
@@ -170,7 +170,7 @@ class Keys[T: Any = shp.ColumnT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.keys)
 
 
-class Records[T: Any = shp.RecordsT](BaseShape[T]):
+class Records[T: Any = shp.RecordsT](BaseBatchableShape[T]):
     """
     A list of row dicts.
     - `T` : The list of row dicts
@@ -180,7 +180,7 @@ class Records[T: Any = shp.RecordsT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.records)
 
 
-class Rows[T: Any = shp.RowsT](BaseShape[T]):
+class Rows[T: Any = shp.RowsT](BaseBatchableShape[T]):
     """
     A list of row tuples.
     - `T` : The list of row tuples.
@@ -190,7 +190,7 @@ class Rows[T: Any = shp.RowsT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.rows)
 
 
-class Columns[T: Any = shp.ColumnsT](BaseShape[T]):
+class Columns[T: Any = shp.ColumnsT](BaseBatchableShape[T]):
     """
     A tuple of columns.
     - `T` : The tuple of column value lists.
@@ -200,7 +200,7 @@ class Columns[T: Any = shp.ColumnsT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.columns)
 
 
-class RecordEntries[T: Any = shp.RecordEntriesT](BaseShape[T]):
+class RecordEntries[T: Any = shp.RecordEntriesT](BaseBatchableShape[T]):
     """
     The list of (key, partial-record) pairs, with keys from
     the first column and dict records made from the remaining columns.
@@ -212,7 +212,7 @@ class RecordEntries[T: Any = shp.RecordEntriesT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.record_entries)
 
 
-class RowEntries[T: Any = shp.RowEntriesT](BaseShape[T]):
+class RowEntries[T: Any = shp.RowEntriesT](BaseBatchableShape[T]):
     """
     The list of (key, partial-row) pairs, with keys from
     the first column and tuple rows made from the remaining columns.
@@ -224,7 +224,7 @@ class RowEntries[T: Any = shp.RowEntriesT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.row_entries)
 
 
-class KeyedRecordEntries[T: Any = shp.RecordEntriesT](BaseShape[T]):
+class KeyedRecordEntries[T: Any = shp.RecordEntriesT](BaseBatchableShape[T]):
     """
     The list of (key, record) pairs, with keys from the first
     column, and dict records made from all columns (including the first).
@@ -236,7 +236,7 @@ class KeyedRecordEntries[T: Any = shp.RecordEntriesT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.keyed_record_entries)
 
 
-class KeyedRowEntries[T: Any = shp.RowEntriesT](BaseShape[T]):
+class KeyedRowEntries[T: Any = shp.RowEntriesT](BaseBatchableShape[T]):
     """
     The list of (key, row) pairs, with keys from the first
     column, and full rows made from all columns (including the first).
@@ -286,7 +286,7 @@ class RowMap[T: Any = shp.RowMappingT](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.row_map)
 
 
-class ColumnMap[T: Any = shp.NameColumnMapT](BaseShape[T]):
+class ColumnMap[T: Any = shp.NameColumnMapT](BaseBatchableShape[T]):
     """
     A dict of column-name -> column.
     - `T` : The dict with column name keys and value-list values.
@@ -326,7 +326,7 @@ class KeyedRowMap[T: Any = shp.RowMappingT](BaseShape[T]):
 type _Tbl[T] = shp.TableOfT[T]
 
 
-class TableRecords[T: Any = _Tbl[shp.RecordsT]](BaseShape[T]):
+class TableRecords[T: Any = _Tbl[shp.RecordsT]](BaseBatchableShape[T]):
     """
     Like `records`, but includes a column-names tuple. Produces `(names, records)`.
     """
@@ -334,7 +334,7 @@ class TableRecords[T: Any = _Tbl[shp.RecordsT]](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.table_records)
 
 
-class TableRows[T: Any = _Tbl[shp.RowsT]](BaseShape[T]):
+class TableRows[T: Any = _Tbl[shp.RowsT]](BaseBatchableShape[T]):
     """
     Like `rows`, but includes a column-names tuple. Produces `(names, rows)`.
     """
@@ -342,7 +342,7 @@ class TableRows[T: Any = _Tbl[shp.RowsT]](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.table_rows)
 
 
-class TableColumns[T: Any = _Tbl[shp.ColumnsT]](BaseShape[T]):
+class TableColumns[T: Any = _Tbl[shp.ColumnsT]](BaseBatchableShape[T]):
     """
     Like `columns`, but includes a column-names tuple. Produces`(names, columns)`.
     """
@@ -350,7 +350,7 @@ class TableColumns[T: Any = _Tbl[shp.ColumnsT]](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.table_columns)
 
 
-class TableRecordEntries[T: Any = _Tbl[shp.RecordEntriesT]](BaseShape[T]):
+class TableRecordEntries[T: Any = _Tbl[shp.RecordEntriesT]](BaseBatchableShape[T]):
     """
     Like `record_entries`, but includes a column-names tuple. Produces `(names, record_entries)`.
     """
@@ -358,7 +358,7 @@ class TableRecordEntries[T: Any = _Tbl[shp.RecordEntriesT]](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.table_record_entries)
 
 
-class TableRowEntries[T: Any = _Tbl[shp.RowEntriesT]](BaseShape[T]):
+class TableRowEntries[T: Any = _Tbl[shp.RowEntriesT]](BaseBatchableShape[T]):
     """
     Like `row_entries`, but includes a column-names tuple. Produces `(names, row_entries)`.
     """
@@ -366,7 +366,7 @@ class TableRowEntries[T: Any = _Tbl[shp.RowEntriesT]](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.table_row_entries)
 
 
-class TableKeyedRecordEntries[T: Any = _Tbl[shp.RecordEntriesT]](BaseShape[T]):
+class TableKeyedRecordEntries[T: Any = _Tbl[shp.RecordEntriesT]](BaseBatchableShape[T]):
     """
     Like `keyed_record_entries`, but includes a column-names tuple.
     Produces `(names, keyed_record_entries)`.
@@ -375,7 +375,7 @@ class TableKeyedRecordEntries[T: Any = _Tbl[shp.RecordEntriesT]](BaseShape[T]):
     _dataframe_to_python = _make_df_to_py(shp.table_keyed_record_entries)
 
 
-class TableKeyedRowEntries[T: Any = _Tbl[shp.RowEntriesT]](BaseShape[T]):
+class TableKeyedRowEntries[T: Any = _Tbl[shp.RowEntriesT]](BaseBatchableShape[T]):
     """
     Like `keyed_row_entries`, but includes a column-names tuple.
     Produces `(names, keyed_row_entries)`.
@@ -429,5 +429,10 @@ class TableKeyedRowMap[T: Any = _Tbl[shp.RowMappingT]](BaseShape[T]):
 # SET SHAPE IDENTITY
 # ------------------
 for cls in list(globals().values()):
-    if isinstance(cls, type) and issubclass(cls, BaseShape) and cls is not BaseShape:
+    if (
+        isinstance(cls, type)
+        and cls.__module__ == __name__
+        and issubclass(cls, BaseShape)
+        and cls is not BaseShape
+    ):
         cls._original_shape_cls = cls  # pyright: ignore[reportPrivateUsage]

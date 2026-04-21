@@ -31,38 +31,33 @@ users = plv.records.collect(lf)  # -> list[dict[str, Any]]
 
 # "I have a model now. Parse + validate a list of them."
 users = plv.records[list[User]].collect(lf)  # -> list[User]
-
-# Can there be an api around that list, so I can model_dump?
+# Can I have model methods on that list, so I can model_dump() it later?
 users = plv.records[list[User]].collect_model(lf)  # -> pydantic.RootModel[list[User]]
-
-# My query produces, at most, 1 user. But 0 rows may come back.
-user = plv.get_record[User | None].collect(lf.filter(name='Mo').head(1))  # -> User | None
 
 # My query produces *exactly* 1 user. It cannot produce 0.
 user = plv.record[User].collect(lf.head(1))  # -> User
+# Correction: Zero rows is possible
+user = plv.get_record[User | None].collect(lf.head(1))  # -> User | None
 
 # Tuples instead of objects? Also...can we do async?
-users = await plv.rows[list[UserNamedTuple]].collect_async(lf)  # -> list[UserNamedTupleRow]
+users = await plv.rows[list[UserTuple]].collect_async(lf)  # -> list[UserNamedTupleRow]
 
-# Need one huge {name: age} mapping. My query returns exactly 2 columns.
-name_age_map = plv.map[dict[str, int]].collect(lf.select(c.name, c.age))
+# Ok, that query was too big to fit into memory. Let's stream-compute + batch-collect
+for users in plv.rows[list[UserTuple]].collect_batches(lf):  # -> Iterator[list[UserTuple]]
+    write_somewhere(users)
 
-# Everyone's names, please
+# I need one huge {name: age} mapping. My query returns exactly 2 columns.
+name_age_map = plv.map[dict[str, int]].collect(lf.select(c.name, c.age))  # -> dict[str, int]
+
+# Everyone's names?
 users_names = plv.column[list[str]].collect(lf.select(c.name))  # -> list[str]
-
 # Age of oldest person?
 oldest_age = plv.item[int | None].collect(lf.select(c.age.max()))  # -> int | None
-
-# Can we parallelize those in Rust, on other threads?
+# Can we parallelize those and await them, without confusing the type-checker?
 users_names, oldest_age = await plv.collect_all_async(
     plv.column[list[str]].defer(lf.select(c.name)),
     plv.item[int | None].defer(lf.select(c.age.max())),
 )  # -> (list[str], int | None)
-
-# Only need his age, but 0 rows may come back. Safely get int or None.
-age = plv.get_item[int | None].collect(
-    lf.filter(c.name == 'jeff').select(c.age).head(1)
-)  # -> int | None
 ```
 
 ---
@@ -74,15 +69,9 @@ plv.<shape>.collect(lf)     # Returns primitive T for <shape>
 plv.<shape>[T].collect(lf)  # Returns T  (yes, T can be any type form)
 ```
 
-A shape is a **fixed contract**.
-
-Part of the contract is that **all values in the dataframe are returned** (materializing data you don't need is a bug).
+A shape is a **fixed contract**. Part of the contract is that **all values in the dataframe are returned** (materializing data you don't need is a bug).
 
 Example: `map` makes a dict from 2 columns, but only if column 0 was unique. (if `len(result) == input_df.height`)
-
-A shape has **only one meaning**. It can't be configured to change the structure.
-
-Example: `item` doesn't just grab a value, it asserts the dataframe has *exactly 1 value*. If it may have 0, that's a different shape: `get_item`.
 
 
 ### Step 1. Pick a Shape
@@ -118,21 +107,27 @@ plv.column[MyCustomArrayType[float | None]]
 > [!TIP]
 > Skipping this step (e.g. `plv.column.collect(lf)`) means skipping Pydantic validation. For `column`, this means you get `lf.collect().to_series().to_list()` directly.
 
+
 ### Step 3. Call a method to create `T`
 
-All shapes have the same methods. These ones return `T`:
+All shapes have the same interface. These produce `T`:
 
 ```python
 # Single query
 result = shape.collect(lf)
 result = await shape.collect_async(lf)
 result = shape.validate(df)  # DataFrame equivalent to collect
+
 # Parallel queries
 result1, result2 = plv.collect_all(shape.defer(lf1), shape.defer(lf2))
 result1, result2 = await plv.collect_all_async(shape.defer(lf1), shape.defer(lf2))
+
+# Streaming-compute, with batch materialization
+for result_batch in shape.collect_batches(lf, chunk_size=1_000_000):
+    ...  # Each batch is still T
 ```
 
-`*_model` variants of each method also exist, to return `T` wrapped in `pydantic.RootModel[T]`.
+`*_model` variants of each method exist, to return `T` wrapped in `pydantic.RootModel[T]`.
 
 
 ## Shapes

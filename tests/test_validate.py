@@ -13,7 +13,11 @@ from polars import col as c
 # --
 from pydantic_polars import validate as plv
 from pydantic_polars._validate import _shape
-from pydantic_polars._validate._base_shape import BaseShape, DeferredValidation
+from pydantic_polars._validate._base_shape import (
+    BaseBatchableShape,
+    BaseShape,
+    DeferredValidation,
+)
 
 
 class User(BaseModel):
@@ -425,6 +429,124 @@ def test_collect_async_and_collect_model_async_validate_lazy_frames() -> None:
     assert values == ['Joe', 'Bob']
     assert isinstance(model, RootModel)
     assert model.root == User(name='Joe', age=23)
+
+
+def test_batchable_shapes_collect_batches() -> None:
+    lf = pl.DataFrame(
+        {
+            'id': [1, 2, 3, 4, 5],
+            'name': ['Joe', 'Bob', 'Mo', 'Ana', 'Kim'],
+            'age': [23, None, 44, 31, 19],
+        }
+    ).lazy()
+
+    assert list(plv.records.collect_batches(lf, chunk_size=2)) == [
+        [
+            {'id': 1, 'name': 'Joe', 'age': 23},
+            {'id': 2, 'name': 'Bob', 'age': None},
+        ],
+        [
+            {'id': 3, 'name': 'Mo', 'age': 44},
+            {'id': 4, 'name': 'Ana', 'age': 31},
+        ],
+        [{'id': 5, 'name': 'Kim', 'age': 19}],
+    ]
+    assert list(plv.column.collect_batches(lf.select(c.name), chunk_size=2)) == [
+        ['Joe', 'Bob'],
+        ['Mo', 'Ana'],
+        ['Kim'],
+    ]
+    assert list(plv.record_entries.collect_batches(lf, chunk_size=2)) == [
+        [
+            (1, {'name': 'Joe', 'age': 23}),
+            (2, {'name': 'Bob', 'age': None}),
+        ],
+        [
+            (3, {'name': 'Mo', 'age': 44}),
+            (4, {'name': 'Ana', 'age': 31}),
+        ],
+        [(5, {'name': 'Kim', 'age': 19})],
+    ]
+    assert list(plv.table_rows.collect_batches(lf, chunk_size=2)) == [
+        (('id', 'name', 'age'), [(1, 'Joe', 23), (2, 'Bob', None)]),
+        (('id', 'name', 'age'), [(3, 'Mo', 44), (4, 'Ana', 31)]),
+        (('id', 'name', 'age'), [(5, 'Kim', 19)]),
+    ]
+
+
+def test_batchable_shapes_collect_model_batches() -> None:
+    lf = pl.DataFrame(
+        {
+            'id': [1, 2, 3],
+            'name': ['Joe', 'Bob', 'Mo'],
+            'age': [23, None, 44],
+        }
+    ).lazy()
+
+    batches = list(
+        plv.record_entries[list[tuple[int, User]]].collect_model_batches(
+            lf, chunk_size=2
+        )
+    )
+
+    assert all(isinstance(batch, RootModel) for batch in batches)
+    assert [batch.root for batch in batches] == [
+        [
+            (1, User(name='Joe', age=23)),
+            (2, User(name='Bob', age=None)),
+        ],
+        [(3, User(name='Mo', age=44))],
+    ]
+
+
+def test_only_batch_safe_shapes_support_collect_batches() -> None:
+    batchable = [
+        plv.column,
+        plv.records,
+        plv.rows,
+        plv.columns,
+        plv.record_entries,
+        plv.row_entries,
+        plv.keyed_record_entries,
+        plv.keyed_row_entries,
+        plv.column_map,
+        plv.table_records,
+        plv.table_rows,
+        plv.table_columns,
+        plv.table_record_entries,
+        plv.table_row_entries,
+        plv.table_keyed_record_entries,
+        plv.table_keyed_row_entries,
+    ]
+    non_batchable = [
+        plv.item,
+        plv.get_item,
+        plv.record,
+        plv.get_record,
+        plv.row,
+        plv.get_row,
+        plv.record_entry,
+        plv.get_record_entry,
+        plv.row_entry,
+        plv.get_row_entry,
+        plv.keys,
+        plv.map,
+        plv.record_map,
+        plv.row_map,
+        plv.keyed_record_map,
+        plv.keyed_row_map,
+        plv.table_map,
+        plv.table_record_map,
+        plv.table_row_map,
+        plv.table_keyed_record_map,
+        plv.table_keyed_row_map,
+    ]
+
+    assert all(issubclass(shape, BaseBatchableShape) for shape in batchable)
+    assert all(hasattr(shape, 'collect_batches') for shape in batchable)
+    assert all(hasattr(shape, 'collect_model_batches') for shape in batchable)
+    assert all(not hasattr(shape, 'collect_batches') for shape in non_batchable)
+    assert all(not hasattr(shape, 'collect_model_batches') for shape in non_batchable)
 
 
 def test_collect_all_variants_validate_multiple_lazy_frames() -> None:
