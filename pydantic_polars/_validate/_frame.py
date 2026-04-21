@@ -228,7 +228,7 @@ class KeyedRecordEntries[T: Any = shp.RecordEntriesT](BaseShape[T]):
     """
     The list of (key, record) pairs, with keys from the first
     column, and dict records made from all columns (including the first).
-    - Query must produce at least 2 columns.
+    - Query must produce at least 1 column.
     - `T` : The list of (key, record) pairs.
     - `[ ('Joe', {'name': 'Joe', 'age': 23}), ('Bob', {'name': 'Bob', 'age': 45}) ]`
     """
@@ -240,7 +240,7 @@ class KeyedRowEntries[T: Any = shp.RowEntriesT](BaseShape[T]):
     """
     The list of (key, row) pairs, with keys from the first
     column, and full rows made from all columns (including the first).
-    - Query must produce at least 2 columns.
+    - Query must produce at least 1 column.
     - `T` : The list of (key, row) pairs.
     - `{ ('Joe', ('Joe', 23)), ('Bob', ('Bob', 45)) }`
     """
@@ -428,6 +428,6 @@ class TableKeyedRowMap[T: Any = _Tbl[shp.RowMappingT]](BaseShape[T]):
 
 # SET SHAPE IDENTITY
 # ------------------
-for cls in globals().values():
+for cls in list(globals().values()):
     if isinstance(cls, type) and issubclass(cls, BaseShape) and cls is not BaseShape:
         cls._original_shape_cls = cls  # pyright: ignore[reportPrivateUsage]

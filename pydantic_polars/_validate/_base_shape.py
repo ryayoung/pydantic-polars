@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING, ClassVar, Unpack
 from pydantic import RootModel, ConfigDict
 from polars import DataFrame, LazyFrame
-import polars as pl
 from .._typing import CollectKwargs, CollectAsyncKwargs
 
 __all__ = ['BaseShape', 'DeferredValidation']

@@ -202,7 +202,7 @@ def row_map(df: DataFrame, /) -> RowMappingT:
     _raise_if_bad_df_dimensions(row_map, df, min_w=2)
     values = df.drop(df.columns[0]).rows()
     result = dict(zip(df.to_series(0).to_list(), values))
-    _raise_if_duplicates(df.height, len(result), record_map, df.columns[0])
+    _raise_if_duplicates(df.height, len(result), row_map, df.columns[0])
     return result
 
 
@@ -220,24 +220,56 @@ def keyed_record_map(df: DataFrame, /) -> RecordMappingT:
 def keyed_row_map(df: DataFrame, /) -> RowMappingT:
     _raise_if_bad_df_dimensions(keyed_row_map, df, min_w=1)
     result = dict(zip(df.to_series(0).to_list(), df.rows()))
-    _raise_if_duplicates(df.height, len(result), keyed_record_map, df.columns[0])
+    _raise_if_duplicates(df.height, len(result), keyed_row_map, df.columns[0])
     return result
 
 
-# fmt: off
-def table_records(df: DataFrame):               return tuple(df.columns), records(df)
-def table_rows(df: DataFrame):                  return tuple(df.columns), rows(df)
-def table_columns(df: DataFrame):               return tuple(df.columns), columns(df)
-def table_record_entries(df: DataFrame):        return tuple(df.columns), record_entries(df)
-def table_row_entries(df: DataFrame):           return tuple(df.columns), row_entries(df)
-def table_keyed_record_entries(df: DataFrame):  return tuple(df.columns), keyed_record_entries(df)
-def table_keyed_row_entries(df: DataFrame):     return tuple(df.columns), keyed_row_entries(df)
-def table_map(df: DataFrame):                   return tuple(df.columns), map(df)
-def table_record_map(df: DataFrame):            return tuple(df.columns), record_map(df)
-def table_row_map(df: DataFrame):               return tuple(df.columns), row_map(df)
-def table_keyed_record_map(df: DataFrame):      return tuple(df.columns), keyed_record_map(df)
-def table_keyed_row_map(df: DataFrame):         return tuple(df.columns), keyed_row_map(df)
-# fmt: on
+def table_records(df: DataFrame):
+    return tuple(df.columns), records(df)
+
+
+def table_rows(df: DataFrame):
+    return tuple(df.columns), rows(df)
+
+
+def table_columns(df: DataFrame):
+    return tuple(df.columns), columns(df)
+
+
+def table_record_entries(df: DataFrame):
+    return tuple(df.columns), record_entries(df)
+
+
+def table_row_entries(df: DataFrame):
+    return tuple(df.columns), row_entries(df)
+
+
+def table_keyed_record_entries(df: DataFrame):
+    return tuple(df.columns), keyed_record_entries(df)
+
+
+def table_keyed_row_entries(df: DataFrame):
+    return tuple(df.columns), keyed_row_entries(df)
+
+
+def table_map(df: DataFrame):
+    return tuple(df.columns), map(df)
+
+
+def table_record_map(df: DataFrame):
+    return tuple(df.columns), record_map(df)
+
+
+def table_row_map(df: DataFrame):
+    return tuple(df.columns), row_map(df)
+
+
+def table_keyed_record_map(df: DataFrame):
+    return tuple(df.columns), keyed_record_map(df)
+
+
+def table_keyed_row_map(df: DataFrame):
+    return tuple(df.columns), keyed_row_map(df)
 
 
 def _raise_if_bad_df_dimensions(

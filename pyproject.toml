@@ -7,7 +7,7 @@ packages = ["pydantic_polars"]
 
 [project]
 name = "pydantic-polars"
-version = "0.0.3"
+version = "0.0.4"
 requires-python = ">=3.14"
 description = "Bring polars data back to Python objects, safely. Validation, schema/query generation."
 authors = [
